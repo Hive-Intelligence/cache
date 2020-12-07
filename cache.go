@@ -3,13 +3,13 @@ package cache
 import (
 	"bytes"
 	"crypto/sha1"
+	"encoding/gob"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"sync"
 	"time"
-	"encoding/gob"
 
 	"github.com/gin-contrib/cache/persistence"
 	"github.com/gin-gonic/gin"
@@ -28,6 +28,7 @@ type responseCache struct {
 	Header http.Header
 	Data   []byte
 }
+
 // RegisterResponseCacheGob registers the responseCache type with the encoding/gob package
 func RegisterResponseCacheGob() {
 	gob.Register(responseCache{})
@@ -133,7 +134,10 @@ func SiteCache(store persistence.CacheStore, expire time.Duration) gin.HandlerFu
 	return func(c *gin.Context) {
 		var cache responseCache
 		url := c.Request.URL
-		key := CreateKey(url.RequestURI())
+		cookie := c.Request.Header.Get("Cookie")
+		rawData, _ := c.GetRawData()
+		body := string(rawData)
+		key := CreateKey(url.RequestURI() + cookie + body)
 		if err := store.Get(key, &cache); err != nil {
 			c.Next()
 		} else {
@@ -153,7 +157,10 @@ func CachePage(store persistence.CacheStore, expire time.Duration, handle gin.Ha
 	return func(c *gin.Context) {
 		var cache responseCache
 		url := c.Request.URL
-		key := CreateKey(url.RequestURI())
+		cookie := c.Request.Header.Get("Cookie")
+		rawData, _ := c.GetRawData()
+		body := string(rawData)
+		key := CreateKey(url.RequestURI() + cookie + body)
 		if err := store.Get(key, &cache); err != nil {
 			if err != persistence.ErrCacheMiss {
 				log.Println(err.Error())
@@ -183,7 +190,11 @@ func CachePage(store persistence.CacheStore, expire time.Duration, handle gin.Ha
 func CachePageWithoutQuery(store persistence.CacheStore, expire time.Duration, handle gin.HandlerFunc) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var cache responseCache
-		key := CreateKey(c.Request.URL.Path)
+		url := c.Request.URL
+		cookie := c.Request.Header.Get("Cookie")
+		rawData, _ := c.GetRawData()
+		body := string(rawData)
+		key := CreateKey(url.RequestURI() + cookie + body)
 		if err := store.Get(key, &cache); err != nil {
 			if err != persistence.ErrCacheMiss {
 				log.Println(err.Error())
@@ -219,7 +230,10 @@ func CachePageWithoutHeader(store persistence.CacheStore, expire time.Duration, 
 	return func(c *gin.Context) {
 		var cache responseCache
 		url := c.Request.URL
-		key := CreateKey(url.RequestURI())
+		cookie := c.Request.Header.Get("Cookie")
+		rawData, _ := c.GetRawData()
+		body := string(rawData)
+		key := CreateKey(url.RequestURI() + cookie + body)
 		if err := store.Get(key, &cache); err != nil {
 			if err != persistence.ErrCacheMiss {
 				log.Println(err.Error())
