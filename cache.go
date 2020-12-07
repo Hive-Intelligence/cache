@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/gob"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -136,6 +137,7 @@ func SiteCache(store persistence.CacheStore, expire time.Duration) gin.HandlerFu
 		url := c.Request.URL
 		cookie := c.Request.Header.Get("Cookie")
 		rawData, _ := c.GetRawData()
+		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(rawData))
 		body := string(rawData)
 		key := CreateKey(url.RequestURI() + cookie + body)
 		if err := store.Get(key, &cache); err != nil {
@@ -159,6 +161,7 @@ func CachePage(store persistence.CacheStore, expire time.Duration, handle gin.Ha
 		url := c.Request.URL
 		cookie := c.Request.Header.Get("Cookie")
 		rawData, _ := c.GetRawData()
+		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(rawData))
 		body := string(rawData)
 		key := CreateKey(url.RequestURI() + cookie + body)
 		if err := store.Get(key, &cache); err != nil {
@@ -193,6 +196,7 @@ func CachePageWithoutQuery(store persistence.CacheStore, expire time.Duration, h
 		url := c.Request.URL
 		cookie := c.Request.Header.Get("Cookie")
 		rawData, _ := c.GetRawData()
+		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(rawData))
 		body := string(rawData)
 		key := CreateKey(url.RequestURI() + cookie + body)
 		if err := store.Get(key, &cache); err != nil {
@@ -232,6 +236,7 @@ func CachePageWithoutHeader(store persistence.CacheStore, expire time.Duration, 
 		url := c.Request.URL
 		cookie := c.Request.Header.Get("Cookie")
 		rawData, _ := c.GetRawData()
+		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(rawData))
 		body := string(rawData)
 		key := CreateKey(url.RequestURI() + cookie + body)
 		if err := store.Get(key, &cache); err != nil {
