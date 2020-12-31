@@ -189,6 +189,54 @@ func CachePage(store persistence.CacheStore, expire time.Duration, handle gin.Ha
 	}
 }
 
+func CachePageCopy(store persistence.CacheStore, expire time.Duration, handle gin.HandlerFunc, funcToTables *database.FuncToTables) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var cache responseCache
+		url := c.Request.URL
+		cookie := c.Request.Header.Get("Cookie")
+		rawData, _ := c.GetRawData()
+		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(rawData))
+		body := string(rawData)
+		key := CreateKey(url.RequestURI() + cookie + body)
+		if err := store.Get(key, &cache); err != nil {
+			if err != persistence.ErrCacheMiss {
+				log.Println(err.Error())
+			}
+
+			// set url to tables
+			database.SetUrlToTables(funcToTables, key)
+
+			// replace writer
+			writer := newCachedWriter(store, expire, c.Writer, key)
+			c.Writer = writer
+			handle(c)
+
+			// Drop caches of aborted contexts
+			if c.IsAborted() {
+				store.Delete(key)
+			}
+		} else {
+			c.Writer.WriteHeader(cache.Status)
+			for k, vals := range cache.Header {
+				for _, v := range vals {
+					c.Writer.Header().Set(k, v)
+				}
+			}
+			c.Writer.Write(cache.Data)
+		}
+	}
+}
+
+func CachePageAtomicCopy(store persistence.CacheStore, expire time.Duration, handle gin.HandlerFunc, funcToTables *database.FuncToTables) gin.HandlerFunc {
+	var m sync.Mutex
+	p := CachePageCopy(store, expire, handle, funcToTables)
+	return func(c *gin.Context) {
+		m.Lock()
+		defer m.Unlock()
+		p(c)
+	}
+}
+
 // CachePageWithoutQuery add ability to ignore GET query parameters.
 func CachePageWithoutQuery(store persistence.CacheStore, expire time.Duration, handle gin.HandlerFunc) gin.HandlerFunc {
 	return func(c *gin.Context) {
